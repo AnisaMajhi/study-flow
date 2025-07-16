@@ -2,7 +2,7 @@ import pytest
 
 # Test A_setup.py
 
-from A_setup import load_data
+from python.A_setup import load_data
 
 def test_load_data(tmp_path, capsys):
     # create temp CSV
@@ -15,7 +15,7 @@ def test_load_data(tmp_path, capsys):
 
 # Test B_weather_stats.py
 
-from B_weather_stats import summary_stats, moving_average
+from python.B_weather_stats import summary_stats, moving_average
 
 def test_summary_stats():
     data = [("d1", 1), ("d2", 3), ("d3", 5)]
