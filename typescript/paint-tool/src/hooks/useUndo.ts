@@ -6,10 +6,12 @@ export function useUndo<T>() {
   const [index, setIndex] = useState(-1);
 
   const push = (value: T) => {
-    const updated = history.slice(0, index + 1);
-    setHistory([...updated, value]);
-    setIndex(index + 1);
+    const updated = history.slice(0, index + 1); // remove redo states
+    const newHistory = [...updated, value];
+    setHistory(newHistory);
+    setIndex(updated.length); // set index to the new value
   };
+
 
   const undo = (): T | null => {
     if (index <= 0) return null;

@@ -1,49 +1,65 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useTool } from '../context/ToolContext';
-import { useUndo } from '../hooks/useUndo';
+import { useUndoContext } from '../context/UndoContext';
 
-export const Canvas: React.FC = () => {
+interface Props {
+  registerRestoreState: (fn: (url: string | null) => void) => void;
+}
+
+export const Canvas: React.FC<Props> = ({ registerRestoreState }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { tool, color, size } = useTool();
+  const { push, undo, redo } = useUndoContext();
   const [drawing, setDrawing] = useState(false);
 
-  // Undo hook works with DataURL
-  const { push, undo, redo } = useUndo<string>();
-
+  // Setup canvas context
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-  }, []);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height); // initial white background
+
+    // ✅ Save initial blank canvas state
+    const dataURL = canvas.toDataURL();
+    push(dataURL);
+   }, []);
+
 
   const saveState = () => {
     const canvas = canvasRef.current!;
-    push(canvas.toDataURL());
+    const dataURL = canvas.toDataURL();
+    push(dataURL);
   };
 
-  const restoreState = (url: string | null) => {
-    if (!url) return;
+  const restoreState = (dataURL: string | null) => {
+    if (!dataURL) return;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     const img = new Image();
-    img.src = url;
+    img.src = dataURL;
     img.onload = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
     };
   };
 
+  // Register restoreState with parent via prop
+  useEffect(() => {
+    registerRestoreState(restoreState);
+  }, [registerRestoreState]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
-    saveState();
     ctx.beginPath();
     ctx.lineWidth = size;
-    ctx.strokeStyle = tool === 'pen' ? color : '#ffffff';
+    ctx.strokeStyle = tool === 'pen' ? color : '#ffffff'; // white for eraser
     ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     setDrawing(true);
   };
+
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!drawing) return;
@@ -55,13 +71,9 @@ export const Canvas: React.FC = () => {
 
   const handleMouseUp = () => {
     setDrawing(false);
+    saveState();  // ✅ Save state after finishing stroke
   };
 
-  // Expose undo/redo to toolbar via global handlers
-  useEffect(() => {
-    (window as any).undoCanvas = () => restoreState(undo());
-    (window as any).redoCanvas = () => restoreState(redo());
-  }, [undo, redo]);
 
   return (
     <canvas
@@ -71,7 +83,12 @@ export const Canvas: React.FC = () => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      style={{ border: '1px solid #ccc', background: '#fff' }}
+      onMouseLeave={() => setDrawing(false)}
+      style={{
+        border: '1px solid #ccc',
+        backgroundColor: '#ffffff',
+        display: 'block',
+      }}
     />
   );
 };
